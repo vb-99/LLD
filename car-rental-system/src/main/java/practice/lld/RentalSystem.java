@@ -1,24 +1,30 @@
 package practice.lld;
 
-import practice.lld.payment.CardPaymentProcessor;
+import practice.lld.payment.CreditCardPaymentProcessor;
 import practice.lld.payment.PaymentProcessor;
+import practice.lld.vehicle.Vehicle;
+import practice.lld.vehicle.VehicleFactory;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class RentalSystem {
     private static RentalSystem instance;
-    private final Map<String,Car> cars;
-    private final Map<String,Customer> customers;
-    private final Map<String,Reservation> reservations;
+    private List<RentalStore> rentalStoreList;
+    private VehicleFactory vehicleFactory;
+    private ReservationManager reservationManager;
     private PaymentProcessor paymentProcessor;
+    private Map<String,User> userMap;
 
     private RentalSystem() {
-        this.cars = new HashMap<>();
-        this.customers = new HashMap<>();
-        this.reservations = new HashMap<>();
-        this.paymentProcessor = new CardPaymentProcessor();
+        this.rentalStoreList = new ArrayList<>();
+        this.vehicleFactory = new VehicleFactory();
+        this.reservationManager = new ReservationManager();
+        this.paymentProcessor = new CreditCardPaymentProcessor();
+        this.userMap = new HashMap<>();
     }
 
     public static synchronized RentalSystem getInstance() {
@@ -27,69 +33,44 @@ public class RentalSystem {
         }
         return instance;
     }
-    public void addCar(Car car) {
-        cars.put(car.getLicensePlate(),car);
+    public void addRentalStore(RentalStore rentalStore) {
+        rentalStoreList.add(rentalStore);
     }
-    public void addCustomer(Customer customer) {
-        customers.put(customer.getDriversLicenseNumber(),customer);
+    public void removeRentalStore(RentalStore rentalStore) {
+        rentalStoreList.remove(rentalStore);
     }
-    public void removeCar(String licensePlate) {
-        cars.remove(licensePlate);
+    public User addUser(String driversLicense, String name, String email) {
+        User user = new User(driversLicense,name,email);
+        userMap.put(user.getDriversLicense(),user);
+        return user;
     }
-    public void removeCustomer(Customer customer) {
-        customers.remove(customer.getDriversLicenseNumber());
-    }
-    public List<Car> getCarList(String company, String model, LocalDate startDate, LocalDate endDate) {
-        List<Car> searchedCars = new ArrayList<>();
-        for(Car car: cars.values()){
-            if(car.isAvailable() && car.getCompany().equals(company) && car.getModel().equals(model)){
-                if(isCarAvailable(car,startDate,endDate)){
-                    searchedCars.add(car);
-                }
-            }
-        }
-        return searchedCars;
-    }
-
-    private boolean isCarAvailable(Car car,LocalDate startDate,LocalDate endDate){
-        for(Reservation reservation: reservations.values()){
-            if(reservation.getCar().equals(car)){
-                if(startDate.isAfter(reservation.getStartDate()) || endDate.isBefore(reservation.getEndDate())){
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    public synchronized void makeReservation(Customer customer, Car car, LocalDate startDate, LocalDate endDate) {
-        if(isCarAvailable(car,startDate,endDate)) {
-            String reservationId = UUID.randomUUID().toString().substring(0, 8);
-            Reservation reservation = new Reservation(car, customer, startDate, endDate, reservationId);
-            if(paymentProcessor.processPayment(reservation.getTotalAmount())) {
-                reservations.put(reservationId, reservation);
-                System.out.println("Reservation successful. Reservation ID: " + reservation.getReservationId());
-                car.setIsAvailable(false);
-            } else{
-                System.out.println("Payment failed. Reservation canceled.");
-            }
-        } else{
-            throw new IllegalStateException("Car is not available");
-        }
-    }
-
-    public synchronized void cancelReservation(String reservationId) {
-        Reservation reservation = reservations.get(reservationId);
-        if(reservation != null) {
-            reservations.remove(reservationId);
-            reservation.getCar().setIsAvailable(true);
-            System.out.println("Reservation canceled. Reservation ID: " + reservation.getReservationId());
-        } else{
-            throw new IllegalStateException("Reservation is not available");
-        }
+    public void removeUser(String driversLicense) {
+        userMap.remove(driversLicense);
     }
 
     public void setPaymentProcessor(PaymentProcessor paymentProcessor) {
         this.paymentProcessor = paymentProcessor;
     }
+    public Reservation createReservation(int id, RentalStore rentalStore, User user, Vehicle vehicle, LocalDate startDate, LocalDate endDate) {
+        return reservationManager.addReservation(id,rentalStore,user,vehicle,startDate,endDate);
+    }
+    public void cancelReservation(int reservationId) {
+        reservationManager.cancelReservation(reservationId);
+    }
+    public void confirmReservation(int reservationId) {
+        reservationManager.confirmReservation(reservationId);
+    }
+    public void startRental(int reservationId) {
+        reservationManager.startRental(reservationId);
+    }
+    public void endRental(int reservationId) {
+        reservationManager.endRental(reservationId);
+    }
+    public PaymentProcessor getPaymentProcessor() {
+        return paymentProcessor;
+    }
+
+
+
+
 }
