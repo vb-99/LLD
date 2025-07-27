@@ -39,7 +39,7 @@ public class BookingController {
             bookings.add(booking);
             return booking;
         } else{
-            throw new Exception("Seats are not valid for the show");
+            throw new Exception("Seats are already booked for the show");
         }
         } catch(Exception e){
           throw new Exception(e.getMessage());
